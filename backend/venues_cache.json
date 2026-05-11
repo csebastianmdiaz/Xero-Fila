@@ -1,0 +1,17 @@
+{
+  "el cangrejo ostioneria, calle constituyentes 976, moderna, 44190 guadalajara, jal, méxico": {
+    "venue_id": "ven_5972734d6b6e35446c66545251494b794b4156307858554a496843",
+    "venue_name": "El Cangrejo Ostioneria",
+    "venue_address": "El Cangrejo Ostioneria, Calle Constituyentes 976, Moderna, 44190 Guadalajara, Jal, México"
+  },
+  "c. constituyentes 976, moderna, 44190 guadalajara, jal.": {
+    "venue_id": "ven_5972734d6b6e35446c66545251494b794b4156307858554a496843",
+    "venue_name": "El Cangrejo Ostioneria",
+    "venue_address": "C. Constituyentes 976, Moderna, 44190 Guadalajara, Jal."
+  },
+  "carnes asadas sabi, calle nueva orleans 1178a, ferrocarril, 44440 guadalajara, jal, méxico": {
+    "venue_id": "ven_59344f69393756424c6f705251494b79574141454838644a496843",
+    "venue_name": "Carnes Asadas Sabi",
+    "venue_address": "Carnes Asadas Sabi, Calle Nueva Orleans 1178A, Ferrocarril, 44440 Guadalajara, Jal, México"
+  }
+}

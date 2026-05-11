@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 import json
@@ -12,6 +13,14 @@ BEST_TIME_URL = os.getenv("BEST_TIME_URL")
 CACHE_FILE = "venues_cache.json"
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 #Cache
 def load_cache():
@@ -40,7 +49,7 @@ def search_venues_here(name, city=None, limit=10):
         "limit": limit,
         "apiKey": HERE_KEY,
         "lang": "es",
-        "in": "circle:23.6345,-102.5528;r=2000000",
+        "in": "circle:20.6597,-103.3496;r=50000",
     }
     response = requests.get("https://discover.search.hereapi.com/v1/discover", params=params)
     if response.status_code != 200:
@@ -92,11 +101,9 @@ def get_forecast_cached(public_key, venue_id):
 def get_forecast(private_key, public_key, venue_name, venue_address):
     cache = load_cache()
     cache_key = venue_address.lower().strip()
-
     if cache_key in cache:
         venue_id = cache[cache_key]["venue_id"]
         return get_forecast_cached(public_key, venue_id)
-
     clean_addr = clean_address(venue_name, venue_address)
     data = get_forecast_new(private_key, venue_name, clean_addr)
     if data:
@@ -120,6 +127,19 @@ def search(name: str, city: str = None):
         raise HTTPException(status_code=404, detail="No se encontraron venues.")
     return {"venues": venues}
 
+#GET /featured - Regresa 5 restaurantes recomendados en Guadalajara
+@app.get("/featured")
+def featured():
+    venues = search_venues_here("restaurantes", "Guadalajara", limit=5)
+    if not venues:
+        raise HTTPException(status_code=404, detail="No se encontraron venues.")
+    return {"venues": venues}
+
+#GET /map?lat=20.67&lon=-103.34 - Regresa URL del mapa estático de HERE
+@app.get("/map")
+def get_map(lat: float, lon: float):
+    url = f"https://www.openstreetmap.org/export/embed.html?bbox={lon-0.005},{lat-0.005},{lon+0.005},{lat+0.005}&layer=mapnik&marker={lat},{lon}"
+    return {"map_url": url}
 
 #POST /forecast
 #Body: { "name": "Carl's Jr", "address": "Avenida Patria 5029..." }
@@ -132,12 +152,9 @@ def forecast(venue: VenueRequest):
     private_key, public_key = get_besttime_keys()
     if not private_key:
         raise HTTPException(status_code=500, detail="Error obteniendo keys de BestTime.")
-
     data = get_forecast(private_key, public_key, venue.name, venue.address)
     if not data:
         raise HTTPException(status_code=404, detail="No se pudo obtener el forecast para este venue.")
-
-    # Parsear y regresar solo lo relevante
     venue_info = data.get("venue_info", {})
     analysis = []
     for day in data.get("analysis", []):
@@ -148,7 +165,6 @@ def forecast(venue: VenueRequest):
             "peak_value": max(hours),
             "hourly": hours,
         })
-
     return {
         "venue_name": venue_info.get("venue_name"),
         "venue_address": venue_info.get("venue_address"),
