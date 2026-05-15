@@ -1,10 +1,15 @@
 "use client";
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useImperativeHandle, forwardRef } from 'react';
 
-export default function Header({ onSearch }: { onSearch?: (query: string) => void }) {
+export type HeaderHandle = { clearQuery: () => void };
+
+const Header = forwardRef<HeaderHandle, { onSearch?: (query: string) => void; onNavigate?: (tab: string) => void }>(
+  function Header({ onSearch, onNavigate }, ref) {
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
+
+  useImperativeHandle(ref, () => ({ clearQuery: () => setQuery('') }));
 
   return (
     <header style={{
@@ -57,25 +62,32 @@ export default function Header({ onSearch }: { onSearch?: (query: string) => voi
 
       <nav>
         <ul style={{ display: 'flex', listStyle: 'none', gap: '4px', margin: 0, padding: 0 }}>
-          {['Inicio', 'Promociones'].map((item) => (
-            <li key={item}>
-              <a href="#" style={{
-                padding: '0.5rem 1rem',
-                borderRadius: '8px',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                color: '#444',
-                textDecoration: 'none',
-                transition: 'all 0.15s ease',
-                display: 'block',
-              }}
+          {[{ label: 'Inicio', tab: 'inicio' }, { label: 'Promociones', tab: 'promociones' }].map(({ label, tab }) => (
+            <li key={tab}>
+              <button
+                onClick={() => { onNavigate?.(tab); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: '8px',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: '#444',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  fontFamily: 'inherit',
+                  display: 'block',
+                }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f0f0f0')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >{item}</a>
+              >{label}</button>
             </li>
           ))}
         </ul>
       </nav>
     </header>
   );
-}
+});
+
+export default Header;
