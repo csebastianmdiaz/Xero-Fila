@@ -1,6 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
-import Header from "./components/Header";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import Header, { type HeaderHandle } from "./components/Header";
+
+const VenueMap = lazy(() => import("./components/VenueMap"));
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -98,7 +100,7 @@ type Venue = {
   categories?: string[]; distance?: number;
 };
 type DayForecast = { day: string; peak_hour: number; peak_value: number; hourly: number[] };
-type ForecastData = { venue_name: string; venue_address: string; analysis: DayForecast[] };
+type ForecastData = { venue_name: string; venue_address: string; analysis: DayForecast[]; is_mock?: boolean };
 
 function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -110,9 +112,11 @@ function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 
 export default function Home() {
   const [tab, setTab] = useState<"inicio" | "promociones">("inicio");
+  const headerRef = useRef<HeaderHandle>(null);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mapUrls, setMapUrls] = useState<Record<string, string>>({});
+  const [backendError, setBackendError] = useState<string | null>(null);
+
   const [modal, setModal] = useState<{ venue: Venue; data: ForecastData | null; loading: boolean } | null>(null);
   const [visibleCards, setVisibleCards] = useState<boolean[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
@@ -136,9 +140,12 @@ export default function Home() {
   }
 
   async function fetchFeatured(lat?: number, lon?: number) {
+    setBackendError(null);
     try {
       const params = lat && lon ? `?lat=${lat}&lon=${lon}` : "";
       const res = await fetch(`${API_URL}/featured${params}`);
+      if (res.status === 503) setBackendError("config");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       let list: Venue[] = data.venues || [];
       if (lat && lon) {
@@ -147,8 +154,7 @@ export default function Home() {
       }
       setVenues(list);
       animateCards(list.length);
-      fetchMapUrls(list);
-    } catch (e) { console.error(e); }
+    } catch { setBackendError(prev => prev ?? "network"); }
     finally { setLoading(false); }
   }
 
@@ -161,25 +167,16 @@ export default function Home() {
     }
   }
 
-  async function fetchMapUrls(list: Venue[]) {
-    const urls: Record<string, string> = {};
-    await Promise.all(list.map(async (v) => {
-      try {
-        const res = await fetch(`${API_URL}/map?lat=${v.lat}&lon=${v.lon}`);
-        const data = await res.json();
-        urls[v.address] = data.map_url;
-      } catch {}
-    }));
-    setMapUrls(urls);
-  }
-
   async function handleSearch(query: string) {
     if (!query.trim()) return;
     setLoading(true);
+    setBackendError(null);
     setTab("inicio");
     try {
       const locParam = userLocation ? `&lat=${userLocation.lat}&lon=${userLocation.lon}` : "";
       const res = await fetch(`${API_URL}/search?name=${encodeURIComponent(query)}&city=Guadalajara${locParam}`);
+      if (res.status === 503) setBackendError("config");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       let list: Venue[] = data.venues || [];
       if (userLocation) {
@@ -188,8 +185,7 @@ export default function Home() {
       }
       setVenues(list);
       animateCards(list.length);
-      fetchMapUrls(list);
-    } catch (e) { console.error(e); }
+    } catch { setBackendError(prev => prev ?? "network"); }
     finally { setLoading(false); }
   }
 
@@ -201,6 +197,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: venue.name, address: venue.address }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ForecastData = await res.json();
       setModal({ venue, data, loading: false });
     } catch {
@@ -215,7 +212,19 @@ export default function Home() {
 
   return (
     <>
-      <Header onSearch={handleSearch} />
+      <Header
+        ref={headerRef}
+        onSearch={handleSearch}
+        onNavigate={(tab) => {
+          setTab(tab as "inicio" | "promociones");
+          if (tab === "inicio") {
+            headerRef.current?.clearQuery();
+            setLoading(true);
+            requestLocation();
+          }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
       <main style={{ minHeight: '100vh', background: '#f5f3ee', padding: '3rem 1.5rem 4rem', position: 'relative', overflow: 'hidden' }}>
 
@@ -245,6 +254,24 @@ export default function Home() {
         {tab === "inicio" && (
           <>
             {loading && <div className="loading-pulse"><span /><span /><span /></div>}
+            {!loading && backendError && (
+              <div style={{ textAlign: 'center', padding: '4rem 1rem', color: '#9aaa9f' }}>
+                <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{backendError === 'config' ? '🔑' : '⚡'}</p>
+                <p style={{ fontWeight: 700, color: '#555', marginBottom: '4px' }}>
+                  {backendError === 'config'
+                    ? 'Falta configurar HERE_KEY'
+                    : 'No se pudo conectar con el servidor'}
+                </p>
+                <p style={{ fontSize: '0.85rem' }}>
+                  {backendError === 'config'
+                    ? <>Agrega tu clave en <code style={{ background: '#ebe9e3', padding: '2px 6px', borderRadius: '4px' }}>backend/.env</code> → <code style={{ background: '#ebe9e3', padding: '2px 6px', borderRadius: '4px' }}>HERE_KEY=tu_clave</code></>
+                    : <>Asegúrate de que el backend esté corriendo en <code style={{ background: '#ebe9e3', padding: '2px 6px', borderRadius: '4px' }}>localhost:8000</code></>}
+                </p>
+                <button onClick={() => { setLoading(true); requestLocation(); }} style={{ marginTop: '1.25rem', padding: '0.5rem 1.5rem', borderRadius: '50px', border: 'none', background: '#0f4c3a', color: '#fff', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>
+                  Reintentar
+                </button>
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', maxWidth: '1100px', margin: '0 auto' }}>
               {!loading && venues.map((venue, i) => (
                 <div key={i} className={`card ${visibleCards[i] ? 'visible' : ''}`} style={{ transitionDelay: `${i * 60}ms` }}>
@@ -252,7 +279,14 @@ export default function Home() {
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '1.1rem 1.1rem 0.75rem' }}>
                     <div className="avatar">{venue.name[0]}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: '#0a1a12', letterSpacing: '-0.01em', lineHeight: 1.3 }}>{venue.name}</p>
+                      <a
+                        href={`https://www.google.com/maps?q=${venue.lat},${venue.lon}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem', color: '#0a1a12', letterSpacing: '-0.01em', lineHeight: 1.3, textDecoration: 'none', display: 'block' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#2d9b6f')}
+                        onMouseLeave={e => (e.currentTarget.style.color = '#0a1a12')}
+                      >{venue.name}</a>
                       <p style={{ margin: '2px 0 6px', fontSize: '0.72rem', color: '#9aaa9f', lineHeight: 1.4 }}>{venue.address}</p>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                         <span className={venue.is_open === true ? 'open-badge' : venue.is_open === false ? 'closed-badge' : 'unknown-badge'}
@@ -271,16 +305,14 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div style={{ width: '100%', height: '140px', background: '#eee', overflow: 'hidden' }}>
-                    {mapUrls[venue.address] ? (
-                      <img
-                        src={mapUrls[venue.address]}
-                        alt="Mapa"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                      />
+                  <div style={{ width: '100%', height: '160px', overflow: 'hidden', borderTop: '1px solid #f0ede6', borderBottom: '1px solid #f0ede6' }}>
+                    {venue.lat && venue.lon ? (
+                      <Suspense fallback={<div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', fontSize: '0.8rem' }}>Cargando mapa...</div>}>
+                        <VenueMap lat={venue.lat} lon={venue.lon} name={venue.name} />
+                      </Suspense>
                     ) : (
-                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', fontSize: '0.8rem' }}>
-                        Cargando mapa...
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', fontSize: '0.8rem', background: '#f5f3ee', gap: '6px' }}>
+                        <span>🗺️</span><span>Sin coordenadas</span>
                       </div>
                     )}
                   </div>
@@ -389,11 +421,23 @@ export default function Home() {
                 </div>
               )}
               {!modal.loading && !modal.data && (
-                <p style={{ textAlign: 'center', color: '#9aaa9f', padding: '2rem 0' }}>
-                  No se pudo obtener la afluencia.
-                </p>
+                <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔍</div>
+                  <p style={{ fontWeight: 700, color: '#444', marginBottom: '4px', fontSize: '0.95rem' }}>
+                    Sin datos de afluencia
+                  </p>
+                  <p style={{ color: '#9aaa9f', fontSize: '0.82rem', maxWidth: '260px', margin: '0 auto', lineHeight: 1.6 }}>
+                    Este local aún no tiene historial suficiente para mostrar gráficas de flujo.
+                  </p>
+                </div>
               )}
-              {!modal.loading && modal.data && modal.data.analysis.map((day, i) => {
+              {!modal.loading && modal.data?.is_mock && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fefce8', border: '1px solid #fde047', borderRadius: '10px', padding: '8px 14px', marginBottom: '1rem', fontSize: '0.78rem', color: '#854d0e' }}>
+                  <span>⚠️</span>
+                  <span>Datos estimados — BestTime no encontró este local</span>
+                </div>
+              )}
+              {!modal.loading && modal.data?.analysis?.map((day, i) => {
                 const isToday = day.day === today;
                 const maxVal = Math.max(...day.hourly);
                 const active = day.hourly.map((v, h) => ({ v, h })).filter(x => x.v > 0);
