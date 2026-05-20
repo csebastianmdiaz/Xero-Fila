@@ -1,7 +1,22 @@
 {
-  "carls junior, circunvalación división del norte 415, colinas de la normal, 44270 guadalajara, jal, méxico": {
-    "venue_id": "ven_496d684f66373644706d5f5251494b78654d787667316e4a496843",
-    "venue_name": "Carls Junior",
-    "venue_address": "Carls Junior, Circunvalación División del Norte 415, Colinas de la Normal, 44270 Guadalajara, Jal, México"
+  "birrieria ramiro, calle san gabriel 2815, esperanza, 44300 guadalajara, jal, méxico": {
+    "venue_id": "ven_304b5474526144514b5f6d526b6f775a704959433877444a496843",
+    "venue_name": "Birrieria Ramiro",
+    "venue_address": "Birrieria Ramiro, Calle San Gabriel 2815, Esperanza, 44300 Guadalajara, Jal, México"
+  },
+  "taquería 3 hermanos, calle batallón de san patricio 722, fracc jardines de santa isabel, 44300 guadalajara, jal, méxico": {
+    "venue_id": "ven_343136653755466e516f595251494b7843664f743879704a496843",
+    "venue_name": "Taquería 3 Hermanos",
+    "venue_address": "Taquería 3 Hermanos, Calle Batallón de San Patricio 722, Fracc Jardines de Santa Isabel, 44300 Guadalajara, Jal, México"
+  },
+  "louie burger, calle pedro moreno 1290, americana, 44160 guadalajara, jal, méxico": {
+    "venue_id": "ven_736b6245717a392d4e6d6e5251494b765350524d4a34454a496843",
+    "venue_name": "Louie Burger",
+    "venue_address": "Louie Burger, Calle Pedro Moreno 1290, Americana, 44160 Guadalajara, Jal, México"
+  },
+  "louie burguer, avenida terranova 1073, fracc lomas de providencia, 44647 guadalajara, jal, méxico": {
+    "venue_id": "ven_554a6456594a4a797150785251494b76436d6b764a5f6c4a496843",
+    "venue_name": "Louie Burguer",
+    "venue_address": "Louie Burguer, Avenida Terranova 1073, Fracc Lomas de Providencia, 44647 Guadalajara, Jal, México"
   }
 }
